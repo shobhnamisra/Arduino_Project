@@ -109,10 +109,11 @@ MPU6050 mpu;
 // ===   Interrupt function when SHOOT button is pressed     ===
 // ================================================================
 
+bool shootflag = 0;
 bool shoot = 0;
 
 void Shoot(){
-  shoot = 1;
+  shootflag = 1;
 }
 
 #define LED_PIN 13 // (Arduino is 13, Teensy is 11, Teensy++ is 6)
@@ -243,10 +244,11 @@ void setup() {
 
 void loop() {
 
-  if (shoot == 1){
-    Serial.println("0xFF");
+  if (shootflag == 1){
+    //Serial.println("0xFF");
     delay(200);
-    shoot = 0;
+    shoot = 1;
+    shootflag = 0;
     }
   
     // if programming failed, don't try to do anything
@@ -280,7 +282,7 @@ void loop() {
         //Serial.println(F("FIFO overflow!"));
 
     // otherwise, check for DMP data ready interrupt (this should happen frequently)
-    } else if (mpuIntStatus & 0x02 && shoot == 0) {
+    } else if (mpuIntStatus & 0x02) {
         // wait for correct available data length, should be a VERY short wait
         while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
 
@@ -301,7 +303,21 @@ void loop() {
             Serial.print("\t");
             //Serial.print(q.y);
             //Serial.print("\t");
-            Serial.println(q.z);
+            Serial.print(q.z);
+            Serial.print("\t");
+
+             if (shoot == 0){
+                Serial.println(shoot);
+                
+                }
+
+              else{
+                
+                Serial.println(shoot);
+                shoot = 0;
+                }
+            
+            
         #endif
 
         #ifdef OUTPUT_READABLE_EULER
