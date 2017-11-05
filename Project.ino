@@ -1,32 +1,3 @@
-// I2C device class (I2Cdev) demonstration Arduino sketch for MPU6050 class using DMP (MotionApps v2.0)
-// 6/21/2012 by Jeff Rowberg <jeff@rowberg.net>
-// Updates should (hopefully) always be available at https://github.com/jrowberg/i2cdevlib
-//
-
-
-/* ============================================
-I2Cdev device library code is placed under the MIT license
-Copyright (c) 2012 Jeff Rowberg
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-===============================================
-*/
 
 // I2Cdev and MPU6050 must be installed as libraries, or else the .cpp/.h files
 // for both classes must be in the include path of your project
@@ -48,24 +19,34 @@ THE SOFTWARE.
 MPU6050 mpu;
 //MPU6050 mpu(0x69); // <-- use for AD0 high
 
-/* =========================================================================
-   NOTE: In addition to connection 3.3v, GND, SDA, and SCL, this sketch
-   depends on the MPU-6050's INT pin being connected to the Arduino's
-   external interrupt #0 pin. On the Arduino Uno and Mega 2560, this is
-   digital I/O pin 2.
- * ========================================================================= */
+//*********** PID variables******************
 
-/* =========================================================================
-   NOTE: Arduino v1.0.1 with the Leonardo board generates a compile error
-   when using Serial.write(buf, len). The Teapot output uses this method.
-   The solution requires a modification to the Arduino USBAPI.h file, which
-   is fortunately simple, but annoying. This will be fixed in the next IDE
-   release. For more info, see these links:
+ float previous_error = 0;
+ float derivative = 0;
+ float integral = 0;
+ float measured_value = 0;
+ float output = 0;
+ float dt = 0.000001;
+ float previous_error1 = 0;
+ float derivative1 = 0;
+ float integral1 = 0;
+ float measured_value1 = 0;
+ float output1 = 0;
+ //float dt = 0.000001;
+ float Kp = 0.001;
+ float Ki = 0.0;
+ float Kd = 0;
 
-   http://arduino.cc/forum/index.php/topic,109987.0.html
-   http://code.google.com/p/arduino/issues/detail?id=958
- * ========================================================================= */
+ float error;
+ float error1; 
 
+   
+  double x = 0;
+  double y = 0;
+  double x_prev = 0;
+  double y_prev = 0;
+  double set_x = 0;
+  double set_y = 0;
 
 
 // uncomment "OUTPUT_READABLE_QUATERNION" if you want to see the actual
@@ -104,7 +85,6 @@ MPU6050 mpu;
 //#define OUTPUT_TEAPOT
 
 
-
 // ================================================================
 // ===   Interrupt function when SHOOT button is pressed     ===
 // ================================================================
@@ -129,6 +109,8 @@ uint8_t fifoBuffer[64]; // FIFO storage buffer
 
 // orientation/motion vars
 Quaternion q;           // [w, x, y, z]         quaternion container
+Quaternion q1; 
+Quaternion q2; 
 VectorInt16 aa;         // [x, y, z]            accel sensor measurements
 VectorInt16 aaReal;     // [x, y, z]            gravity-free accel sensor measurements
 VectorInt16 aaWorld;    // [x, y, z]            world-frame accel sensor measurements
@@ -296,14 +278,39 @@ void loop() {
         #ifdef OUTPUT_READABLE_QUATERNION
             // display quaternion values in easy matrix form: w x y z
             mpu.dmpGetQuaternion(&q, fifoBuffer);
+            mpu.dmpGetQuaternion(&q1, fifoBuffer);
+            mpu.dmpGetQuaternion(&q2, fifoBuffer);
             //Serial.print("quat\t");
             //Serial.print(q.w);
             //Serial.print("\t");
-            Serial.print(q.x);
+          
+                       
+            set_x = (q.x + q1.x + q2.x)/3;
+            set_y = (q.z + q1.z + q2.z)/3;
+            measured_value = y_prev;
+            measured_value1 = x_prev;
+            
+            error = set_y - measured_value;
+            integral = integral + error*dt;
+            derivative = (error - previous_error)/dt;
+            output = Kp*error + Ki*integral + Kd*derivative;
+            y = set_y + output;
+
+            //Serial.println(ynew);
+            
+            error1 = set_x - measured_value1;
+            integral1 = integral1 + error1*dt;
+            derivative1 = (error1 - previous_error1)/dt;
+            output1 = Kp*error1 + Ki*integral1 + Kd*derivative1;
+            x = set_x + output1;
+
+             
+            Serial.print(x);
             Serial.print("\t");
             //Serial.print(q.y);
             //Serial.print("\t");
-            Serial.print(q.z);
+           
+            Serial.print(y);
             Serial.print("\t");
 
              if (shoot == 0){
@@ -316,7 +323,11 @@ void loop() {
                 Serial.println(shoot);
                 shoot = 0;
                 }
-            
+
+            previous_error = error;
+            previous_error1 = error1;
+            y_prev = y;
+            x_prev = x;
             
         #endif
 
